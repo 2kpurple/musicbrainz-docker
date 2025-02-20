@@ -52,9 +52,9 @@ MusicBrainz::Server::DatabaseConnectionFactory->register_databases(
     # How to connect when we need read-write access to the database
     READWRITE => {
         database    => "musicbrainz_db",
-        username    => $ENV{"POSTGRES_USER"},
-        password    => $ENV{"POSTGRES_PASSWORD"},
-        host        => "db",
+        username    => "$ENV{POSTGRES_USER}",
+        password    => "$ENV{POSTGRES_PASSWORD}",
+        host        => "$ENV{MUSICBRAINZ_POSTGRES_SERVER}",
         port        => "5432",
     },
     # How to connect to a test database
@@ -78,17 +78,17 @@ MusicBrainz::Server::DatabaseConnectionFactory->register_databases(
     # How to connect for read-only access.  See "REPLICATION_TYPE" (below)
     READONLY => {
         database    => "musicbrainz_db",
-        username    => $ENV{"POSTGRES_USER"},
-        password    => $ENV{"POSTGRES_PASSWORD"},
-        host        => "db",
+        username    => "$ENV{POSTGRES_USER}",
+        password    => "$ENV{POSTGRES_PASSWORD}",
+        host        => "$ENV{MUSICBRAINZ_POSTGRES_READONLY_SERVER}",
         port        => "5432",
     },
     # How to connect for administrative access
     SYSTEM    => {
         database    => "template1",
-        username    => $ENV{"POSTGRES_USER"},
-        password    => $ENV{"POSTGRES_PASSWORD"},
-        host        => "db",
+        username    => "$ENV{POSTGRES_USER}",
+        password    => "$ENV{POSTGRES_PASSWORD}",
+        host        => "$ENV{MUSICBRAINZ_POSTGRES_SERVER}",
         port        => "5432",
     },
     # How to connect when running maintenance scripts located under admin/.
@@ -255,7 +255,7 @@ sub PLUGIN_CACHE_OPTIONS {
     my $self = shift;
     return {
         class => 'MusicBrainz::Server::CacheWrapper::Redis',
-        server => 'redis:6379',
+        server => "$ENV{MUSICBRAINZ_REDIS_SERVER}:6379",
         namespace => $self->CACHE_NAMESPACE . 'Catalyst:',
     };
 }
@@ -270,7 +270,7 @@ sub CACHE_MANAGER_OPTIONS {
             external => {
                 class => 'MusicBrainz::Server::CacheWrapper::Redis',
                 options => {
-                    server => 'redis:6379',
+                    server => "$ENV{MUSICBRAINZ_REDIS_SERVER}:6379",
                     namespace => $self->CACHE_NAMESPACE,
                 },
             },
@@ -309,7 +309,7 @@ sub DATASTORE_REDIS_ARGS {
     return {
         database => 0,
         namespace => $self->CACHE_NAMESPACE,
-        server => 'redis:6379',
+        server => "$ENV{MUSICBRAINZ_REDIS_SERVER}:6379",
         test_database => 1,
     };
 }
@@ -411,8 +411,10 @@ sub DEVELOPMENT_SERVER { $ENV{MUSICBRAINZ_DEVELOPMENT_SERVER} == 1 ? 1 : 0 }
 # Please activate the officially approved languages here. Not every .po
 # file is active because we might have fully translated languages which
 # are not yet properly supported, like right-to-left languages
+#
+# The corresponding language packs must be installed; See NOTE-LANGUAGES-1
 sub MB_LANGUAGES { shift->DEVELOPMENT_SERVER()
-    ? qw( de el es-es et fi fr he it ja nl sq en )
+    ? qw( de el es et fi fr he it ja nl sq en )
     : qw( de fr it nl en )
 }
 

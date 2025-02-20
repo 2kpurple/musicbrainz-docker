@@ -94,14 +94,14 @@ for F in "${DUMP_FILES[@]}"; do
 done
 
 echo "found existing dumps"
-dockerize -wait tcp://db:5432 -timeout 60s sleep 0
+dockerize -wait "tcp://${MUSICBRAINZ_POSTGRES_SERVER}:5432" -timeout 60s sleep 0
 
 mkdir -p $TMP_DIR
 cd /media/dbdump
 
 INITDB_OPTIONS='--echo --import'
-if ! /musicbrainz-server/script/database_exists MAINTENANCE; then
+if ! carton exec -- /musicbrainz-server/script/database_exists MAINTENANCE; then
     INITDB_OPTIONS="--createdb $INITDB_OPTIONS"
 fi
 # shellcheck disable=SC2086
-/musicbrainz-server/admin/InitDb.pl $INITDB_OPTIONS -- --skip-editor --tmp-dir $TMP_DIR "${DUMP_FILES[@]}"
+carton exec -- /musicbrainz-server/admin/InitDb.pl $INITDB_OPTIONS -- --skip-editor --tmp-dir $TMP_DIR "${DUMP_FILES[@]}"

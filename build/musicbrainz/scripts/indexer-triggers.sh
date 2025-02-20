@@ -12,18 +12,18 @@ fi
 
 INDEXER_SQL_DIR="$1"
 
-dockerize -wait tcp://db:5432 -timeout 60s sleep 0
+dockerize -wait "tcp://${MUSICBRAINZ_POSTGRES_SERVER}:5432" -timeout 60s sleep 0
 
 cd /musicbrainz-server
 
 case "$2" in
   create)
-    admin/psql < "$INDEXER_SQL_DIR/CreateFunctions.sql"
-    admin/psql < "$INDEXER_SQL_DIR/CreateTriggers.sql"
+    carton exec -- admin/psql < "$INDEXER_SQL_DIR/CreateFunctions.sql"
+    carton exec -- admin/psql < "$INDEXER_SQL_DIR/CreateTriggers.sql"
     ;;
   drop  )
-    admin/psql < "$INDEXER_SQL_DIR/DropTriggers.sql"
-    admin/psql < "$INDEXER_SQL_DIR/DropFunctions.sql"
+    carton exec -- admin/psql < "$INDEXER_SQL_DIR/DropTriggers.sql"
+    carton exec -- admin/psql < "$INDEXER_SQL_DIR/DropFunctions.sql"
     rm -frv "$INDEXER_SQL_DIR"
     ;;
   *    )

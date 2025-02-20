@@ -47,7 +47,7 @@ search and replication in docker.
 
 * CPU: 16 threads (or 2 without indexed search), x86-64 architecture
 * RAM: 16 GB (or 4 without indexed search)
-* Disk Space: 200 GB (or 100 without indexed search)
+* Disk Space: 250 GB (or 100 without indexed search)
 
 ### Required software
 
@@ -87,9 +87,9 @@ If you use [UFW](https://help.ubuntu.com/community/UFW) to manage your firewall:
 
 ## Components version
 
-* Current MB Branch: [v-2023-10-24-hotfix](build/musicbrainz/Dockerfile#L53)
-* Current DB_SCHEMA_SEQUENCE: [28](build/musicbrainz/Dockerfile#L129)
-* Postgres Version: [12](docker-compose.yml)
+* Current MB Branch: [v-2025-02-10.0](build/musicbrainz/Dockerfile#L88)
+* Current DB_SCHEMA_SEQUENCE: [29](build/musicbrainz/Dockerfile#L125)
+* Postgres Version: [16](docker-compose.yml)
   (can be changed by setting the environment variable `POSTGRES_VERSION`)
 * MB Solr search server: [3.4.2](docker-compose.yml#L88)
   (can be changed by setting the environment variable `MB_SOLR_VERSION`)
@@ -152,7 +152,7 @@ tables, the server will generally fall back to slower queries in their place.
 If you wish to configure the materialized tables, you can run:
 
 ```bash
-sudo docker-compose exec musicbrainz bash -c './admin/BuildMaterializedTables --database=MAINTENANCE all'
+sudo docker-compose exec musicbrainz bash -c 'carton exec -- ./admin/BuildMaterializedTables --database=MAINTENANCE all'
 ```
 
 ### Start website
@@ -364,7 +364,7 @@ This number can be changed using the Docker environment variable
 #### Customize download server
 
 By default, data dumps and pre-built search indexes are downloaded from
-`http://ftp.eu.metabrainz.org/pub/musicbrainz`.
+`https://data.metabrainz.org/pub/musicbrainz`.
 
 The download server can be changed using the Docker environment variable
 `MUSICBRAINZ_BASE_DOWNLOAD_URL`.
@@ -401,6 +401,40 @@ This can be changed by creating a custom configuration file under
 [and finally](https://docs.docker.com/storage/bind-mounts/#choose-the--v-or---mount-flag)
 setting the Docker environment variable `SIR_CONFIG_PATH` to its path.
 
+#### Customize backend Postgres server
+
+By default, the services `indexer` and `musicbrainz` are trying to connect to the host `db` (for both read-only and write host) but the hosts can
+be customized using the `MUSICBRAINZ_POSTGRES_SERVER` and `MUSICBRAINZ_POSTGRES_READONLY_SERVER` environment variables.
+
+Notes:
+* After switching to another Postgres server:
+  * If not transferring data, it is needed to create the database again.
+  * For live indexing, the RabbitMQ server has to still be reachable from the Postgres server.
+* The helper scripts `check-search-indexes` and `create-amqp-extension` won’t work anymore.
+* The service `db` will still be up even if unused.
+
+#### Customize backend RabbitMQ server
+
+By default, the services `db`, `indexer` and `musicbrainz` are trying to connect to the host `mq`
+but the host can be customized using the `MUSICBRAINZ_RABBITMQ_SERVER` environment variable.
+
+Notes:
+* After switching to another RabbitMQ server:
+  - Live indexing requires to go through AMQP Setup again.
+  - If not transferring data, it might be needed to build search indexes again.
+* The helper script `purge-message-queues` won’t work anymore.
+* The service `mq` will still be up even if unused.
+
+#### Customize backend Redis server
+
+By default, the service `musicbrainz` is trying to connect to the host `redis`
+but the host can be customized using the `MUSICBRAINZ_REDIS_SERVER` environment variable.
+
+Notes:
+* After switching to another Redis server:
+  - If not transferring data, MusicBrainz user sessions will be reset.
+* The service `redis` will still be running even if unused.
+
 ### Docker Compose overrides
 
 In Docker Compose, it is possible to override the base configuration using
@@ -420,6 +454,16 @@ The helper script [`admin/configure`](admin/configure) is able to:
 Try `admin/configure help` for more information.
 
 #### Publish ports of all services
+
+:warning: The service `search` is currently running Solr 7 in
+standalone mode which is vulnerable to privilege escalation.
+See [CVE-2025-24814](https://lists.apache.org/thread/gl291pn8x9f9n52ys5l0pc0b6qtf0qw1) for details.
+We are working on upgrading to Solr 9 in SolrCloud mode.
+See [SEARCH-685](https://tickets.metabrainz.org/browse/SEARCH-685) for follow-up.
+In general, Solr is strongly recommended to be accessible to your own clients only.
+See [Solr Security](https://cwiki.apache.org/confluence/display/SOLR/SolrSecurity) for details.
+Similarly, other services have not been configured to be safely publicly accessible either.
+Take this warning in consideration when publishing their ports.
 
 To publish ports of services `db`, `mq`, `redis` and `search`
 (additionally to `musicbrainz`) on the host, simply run:
@@ -546,9 +590,21 @@ Simply restart the container when checking out a new branch.
 
 This is very similar to the above but for Search Index Rebuilder (SIR):
 
-1. Set the variable `SIR_LOCAL_ROOT` in the `.env` file
+1. Optionally set the following variables in the `.env` file:
+   - `SIR_DEV_CONFIG_PATH`
+     (Default: `./default/config.ini` replacing `SIR_CONFIG_PATH`)
+   - `SIR_DEV_LOCAL_ROOT`
+     (Default: `../sir` assuming that `musicbrainz-docker` and `sir`
+     have been cloned under the same parent directory)
+   - `SIR_DEV_PYTHON_VERSION`
+     (Default: `2.7` matching `metabrainz/python` image tag)
+   - `SIR_DEV_BASE_IMAGE_DATE`
+     (Default: `20220421` matching `metabrainz/python` image tag)
+   - `SIR_DEV_VERSION`
+     (Default: `py27-stage1` which is informative only)
 2. Run `admin/configure add sir-dev`
-3. Run `sudo docker-compose up -d`
+3. Run `sudo docker-compose build indexer`
+4. Run `sudo docker-compose up -d`
 
 Notes:
 
